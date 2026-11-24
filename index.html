@@ -350,8 +350,8 @@ vpop.addEventListener('mousedown', function (e) { var n = e.target.closest('.vo'
 
 /* ---------------- applying to the 3D view ---------------- */
 function setStatus(msg, err) { var el = $('#status'); el.textContent = msg || ''; el.className = 'status' + (err ? ' err' : ''); clearTimeout(setStatus.t); if (msg) setStatus.t = setTimeout(function () { el.textContent = ''; }, 9000); }
-function selectorFor(mask) {
-  var by = {}; for (var i = 0; i < mask.length; i++) if (mask[i]) (by[data.mid[i]] = by[data.mid[i]] || []).push(data.vid[i]);
+function selectorFor(mask, invert) {
+  var by = {}; for (var i = 0; i < mask.length; i++) if (invert ? !mask[i] : mask[i]) (by[data.mid[i]] = by[data.mid[i]] || []).push(data.vid[i]);
   return Object.keys(by).map(function (k) { return { modelId: k, objectRuntimeIds: by[k] }; });
 }
 function applyFilter() {
@@ -359,12 +359,23 @@ function applyFilter() {
   var total = lastEval.total, mode = document.querySelector('input[name=mode]:checked').value, ids = selectorFor(lastEval.mask), v = api.viewer;
   if (!total) { setStatus('Nothing matches, so the 3D view was left as it is.', true); return; }
   var p;
-  if (mode === 'show') p = v.setObjectState(undefined, { visible: false }).then(function () { return v.setObjectState({ modelObjectIds: ids }, { visible: true }); });
-  else if (mode === 'hide') p = v.setObjectState(undefined, { visible: 'reset' }).then(function () { return v.setObjectState({ modelObjectIds: ids }, { visible: false }); });
+  var method = '';
+  if (mode === 'show') {
+    /* Preferred: the viewer's own "Show only selected objects". Fallback: hide every object that did not match. */
+    p = v.setObjectState(undefined, { visible: 'reset' }).then(function () {
+      if (!v.isolateEntities) throw new Error('isolateEntities is not available');
+      return v.isolateEntities(ids.map(function (s) { return { modelId: s.modelId, entityIds: s.objectRuntimeIds }; })).then(function (ok) { if (ok === false) throw new Error('the viewer declined to isolate'); method = ' (viewer isolate)'; });
+    }).catch(function () {
+      method = ' (hid the others)';
+      return v.setObjectState(undefined, { visible: 'reset' }).then(function () { return v.setObjectState({ modelObjectIds: selectorFor(lastEval.mask, true) }, { visible: false }); });
+    });
+  }
+  if (mode === 'show') { /* handled above */ }
+  else if (mode === 'hide') p =v.setObjectState(undefined, { visible: 'reset' }).then(function () { return v.setObjectState({ modelObjectIds: ids }, { visible: false }); });
   else p = v.setSelection({ modelObjectIds: ids }, 'set');
   $('#applyBtn').disabled = true;
   p.then(function () { if ($('#zoom').checked && mode !== 'hide' && v.setCamera) return v.setCamera({ modelObjectIds: ids }); })
-    .then(function () { setStatus((mode === 'show' ? 'Showing only ' : mode === 'hide' ? 'Hid ' : 'Selected ') + total.toLocaleString() + ' object' + (total === 1 ? '' : 's') + '.'); })
+    .then(function () { setStatus((mode === 'show' ? 'Showing only ' : mode === 'hide' ? 'Hid ' : 'Selected ') + total.toLocaleString() + ' object' + (total === 1 ? '' : 's') + '.' + method); })
     .catch(function (e) { setStatus('The 3D viewer did not accept that: ' + (e && e.message || e), true); })
     .then(function () { recompute(); });
 }
