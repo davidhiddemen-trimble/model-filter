@@ -1,0 +1,8 @@
+{
+  "url": "https://davidhiddemen-trimble.github.io/model-filter/",
+  "title": "Model Filter",
+  "icon": "https://davidhiddemen-trimble.github.io/model-filter/icon.png",
+  "description": "Filter the 3D view by property (profile, material, mark and more) using Tekla-style rules with And/Or and brackets.",
+  "enabled": true,
+  "extensionType": ["3dviewer"]
+}

@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Model Filter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root {
+  --bg: #f1f4f7; --panel: #ffffff; --panel-2: #f7f9fb; --line: #d5dce3; --line-soft: #e6ebf0;
+  --fg: #17212b; --muted: #5a6877; --accent: #0a58a8; --accent-fg: #ffffff; --accent-soft: #e3eefa;
+  --warn: #a8480f; --warn-soft: #fbece0; --ok: #1d7a4a; --focus: #0a58a8;
+  --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11171d; --panel: #1a222a; --panel-2: #151c23; --line: #2f3b47; --line-soft: #26313b;
+    --fg: #e5ebf1; --muted: #9aa8b6; --accent: #5ea8f2; --accent-fg: #0b1b2b; --accent-soft: #1c3249;
+    --warn: #f0a068; --warn-soft: #3a2616; --ok: #5fcb91; --focus: #5ea8f2; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 14px; line-height: 1.45; padding: 14px max(16px, env(safe-area-inset-right, 0px)) 40px max(16px, env(safe-area-inset-left, 0px)); }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.app { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.brand { font-weight: 600; font-size: 17px; letter-spacing: -.01em; margin-right: auto; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.brand small { font-weight: 400; font-size: 12.5px; color: var(--muted); }
+.chip { display: inline-flex; gap: 8px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); font-size: 12.5px; max-width: 100%; }
+.chip b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 30ch; }
+.chip span { color: var(--muted); white-space: nowrap; }
+.btn { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 6px 12px; cursor: pointer; line-height: 1.3; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 500; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.small { padding: 3px 9px; font-size: 12.5px; }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+.btn.ghost:hover { color: var(--fg); border-color: var(--line); }
+.btn[disabled] { opacity: .5; cursor: default; }
+.banner { padding: 9px 12px; border-radius: 6px; font-size: 13px; background: var(--accent-soft); border: 1px solid var(--line); }
+.banner.warn { background: var(--warn-soft); border-color: transparent; }
+#banner { display: flex; flex-direction: column; gap: 8px; }
+#banner:empty { display: none; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.bar label { font-size: 12.5px; color: var(--muted); }
+.bar select { min-width: 200px; max-width: 320px; }
+.bar input[type=text] { width: 190px; }
+select, input[type=text] { border: 1px solid var(--line); background: var(--panel); border-radius: 4px; padding: 4px 6px; min-width: 0; max-width: 100%; }
+.gridwrap { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; }
+table.grid { border-collapse: collapse; width: 100%; min-width: 860px; }
+table.grid th { text-align: left; font-weight: 600; font-size: 12px; padding: 7px 6px; background: var(--panel-2); border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.grid td { padding: 3px 4px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+table.grid tr:focus-within td { background: var(--accent-soft); }
+table.grid tr.off td { opacity: .55; }
+table.grid td select, table.grid td input[type=text] { width: 100%; }
+table.grid td.c-br select { width: 52px; text-align: center; }
+table.grid td.c-join select { width: 70px; }
+table.grid td.c-on { width: 28px; text-align: center; }
+table.grid td.cnt { color: var(--muted); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; padding-right: 8px; }
+table.grid td.last { color: var(--muted); text-align: center; }
+table.grid select.missing { border-color: var(--warn); color: var(--warn); }
+.note { font-size: 12.5px; color: var(--muted); }
+.warnline { color: var(--warn); font-size: 12.5px; }
+.x { border: 0; background: transparent; cursor: pointer; color: var(--muted); padding: 3px 7px; border-radius: 4px; font-size: 15px; line-height: 1; }
+.x:hover { background: var(--line-soft); color: var(--fg); }
+.act { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.act .modes { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.act label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.count { font-weight: 600; font-size: 15px; }
+.count.bad { color: var(--warn); }
+.status { min-height: 20px; font-size: 13px; color: var(--ok); }
+.status.err { color: var(--warn); }
+#vpop { position: fixed; z-index: 60; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.2); overflow: auto; font-size: 13px; }
+#vpop .vo { padding: 5px 10px; cursor: pointer; display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line-soft); }
+#vpop .vo:hover, #vpop .vo.on { background: var(--accent-soft); }
+#vpop .vn { color: var(--muted); font-variant-numeric: tabular-nums; }
+#vpop .vm { padding: 6px 10px; color: var(--muted); font-size: 12px; }
+.loading { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--bg) 70%, transparent); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="brand">Model Filter <small>Show only the objects you need. The choices come from the model that is loaded.</small></div>
+    <div class="chip" id="chip" hidden><b id="chipName"></b><span id="chipInfo"></span></div>
+    <button class="btn" id="refreshBtn" type="button" hidden>Refresh from viewer</button>
+  </div>
+  <div id="banner"></div>
+
+  <div class="bar" id="savedBar">
+    <label for="saved">Saved filters</label>
+    <select id="saved" aria-label="Saved filters"></select>
+    <input type="text" id="saveName" placeholder="Name this filter" aria-label="Filter name">
+    <button class="btn small" id="saveBtn" type="button">Save</button>
+    <button class="btn small ghost" id="delBtn" type="button">Delete</button>
+    <button class="btn small ghost" id="expBtn" type="button">Export</button>
+    <button class="btn small ghost" id="impBtn" type="button">Import</button>
+    <input type="file" id="impIn" accept=".json" hidden>
+  </div>
+
+  <div class="gridwrap">
+    <table class="grid">
+      <thead><tr><th></th><th>(</th><th>Category</th><th>Property</th><th>Condition</th><th>Value</th><th>)</th><th>And/Or</th><th style="text-align:right">Matches</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <div class="row-actions">
+    <button class="btn small" id="addRow" type="button">+ Add row</button>
+    <button class="btn small ghost" id="clearRows" type="button">Clear all</button>
+    <span class="note">Rows with an empty Value are ignored. Type (blank) to find objects that have no value. Matching ignores upper and lower case.</span>
+  </div>
+
+  <div class="act">
+    <div class="modes" role="radiogroup" aria-label="What to do with matches">
+      <label><input type="radio" name="mode" value="show" checked> Show only matches (hide the rest)</label>
+      <label><input type="radio" name="mode" value="hide"> Hide matches</label>
+      <label><input type="radio" name="mode" value="select"> Select matches</label>
+    </div>
+    <label><input type="checkbox" id="zoom" checked> Zoom to result</label>
+    <span class="count" id="count"></span>
+    <button class="btn primary" id="applyBtn" type="button">Apply to 3D view</button>
+    <button class="btn" id="resetBtn" type="button">Show everything again</button>
+  </div>
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+</div>
+<div id="vpop" hidden></div>
+<div class="loading" id="loading" hidden>Reading model…</div>
+
+<script>
+(function () {
+'use strict';
+var SEP = '\u0001';
+var OPS = [['eq', 'Equals'], ['neq', 'Does not equal'], ['begins', 'Begins with'], ['nbegins', 'Does not begin with'], ['ends', 'Ends with'], ['nends', 'Does not end with'], ['has', 'Contains'], ['nhas', 'Does not contain']];
+function $(s) { return document.querySelector(s); }
+function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function nat(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); }
+
+var api = null;          // Trimble Workspace API, when connected
+var data = null;         // loaded model: { n, mid[], vid[], v[], cats: Map, name }
+var rows = [];           // the filter rows
+var demo = false;
+var saved = [];
+var SKEY = 'modelfilter.saved.v1';
+try { saved = JSON.parse(localStorage.getItem(SKEY) || '[]'); } catch (e) { saved = []; }
+function persist() { try { localStorage.setItem(SKEY, JSON.stringify(saved)); return true; } catch (e) { return false; } }
+
+/* ---------------- reading the model ---------------- */
+function toText(p) {
+  var v = p.value; if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number') { if (/\?$/.test(p.name) && (v === 0 || v === 1)) return v ? 'Yes' : 'No'; return String(Math.round(v * 1000) / 1000); }
+  return null;
+}
+function buildData(objs, names, label) {
+  var d = { n: 0, mid: [], vid: [], v: [], cats: new Map(), name: label || 'Model' };
+  function note(cat, prop, text) {
+    var cm = d.cats.get(cat); if (!cm) { cm = new Map(); d.cats.set(cat, cm); }
+    var r = cm.get(prop); if (!r) { r = { count: 0, vals: new Map() }; cm.set(prop, r); }
+    r.count++; var c = r.vals.get(text);
+    if (c !== undefined) r.vals.set(text, c + 1); else if (r.vals.size < 3000) r.vals.set(text, 1);
+  }
+  objs.forEach(function (o) {
+    var v = {};
+    function put(cat, prop, text) { if (text === null || text === undefined || text === '') return; v[cat + SEP + prop] = text; note(cat, prop, text); }
+    put('General', 'Class', o.class ? String(o.class) : null);
+    if (names && o.modelId && names[o.modelId]) put('General', 'Model', names[o.modelId]);
+    if (o.product && typeof o.product === 'object') Object.keys(o.product).forEach(function (k) { if (typeof o.product[k] === 'string') put('General', k.charAt(0).toUpperCase() + k.slice(1), o.product[k]); });
+    (o.properties || []).forEach(function (ps) {
+      var cat = ps.name || '(unnamed set)';
+      (ps.properties || []).forEach(function (p) { put(cat, p.name, toText(p)); });
+    });
+    d.mid.push(o.modelId); d.vid.push(o.id); d.v.push(v); d.n++;
+  });
+  return d;
+}
+function catList() { if (!data) return []; return Array.from(data.cats.keys()).sort(function (a, b) { return a === 'General' ? -1 : b === 'General' ? 1 : nat(a, b); }); }
+function propList(cat) { var cm = data && data.cats.get(cat); return cm ? Array.from(cm.keys()).sort(nat) : []; }
+function propRec(cat, prop) { var cm = data && data.cats.get(cat); return cm && cm.get(prop); }
+
+/* ---------------- filter rows ---------------- */
+function blankRow() { return { on: true, open: 0, cat: '', prop: '', op: 'eq', value: '', close: 0, join: 'and' }; }
+function seedRows() {
+  rows = [];
+  ['Name', 'Profile', 'Material'].forEach(function (want) {
+    var best = null, bestN = 0, bestPref = -1;
+    catList().forEach(function (c) {
+      var r = propRec(c, want); if (!r) return;
+      var pref = /part/i.test(c) ? 1 : 0;
+      if (pref > bestPref || (pref === bestPref && r.count > bestN)) { best = c; bestN = r.count; bestPref = pref; }
+    });
+    if (best) { var r = blankRow(); r.cat = best; r.prop = want; rows.push(r); }
+  });
+  if (!rows.length) { var b = blankRow(); var cs = catList(); if (cs.length) { b.cat = cs[0]; b.prop = propList(cs[0])[0] || ''; } rows.push(b); }
+}
+function opts(list, sel, extra) {
+  var h = list.map(function (x) { return '<option value="' + esc(x[0]) + '"' + (x[0] === sel ? ' selected' : '') + '>' + esc(x[1]) + '</option>'; }).join('');
+  return h;
+}
+function bracketOpts(n, ch) { var h = ''; for (var i = 0; i < 4; i++) h += '<option value="' + i + '"' + (i === n ? ' selected' : '') + '>' + (i ? new Array(i + 1).join(ch) : '') + '</option>'; return h; }
+function render() {
+  var cats = catList(), h = '';
+  rows.forEach(function (r, i) {
+    var catKnown = !r.cat || (data && data.cats.has(r.cat)), props = propList(r.cat), propKnown = !r.prop || props.indexOf(r.prop) > -1;
+    var catOpts = cats.map(function (c) { return [c, c]; });
+    if (r.cat && !catKnown) catOpts.unshift([r.cat, r.cat + ' (not in this model)']);
+    if (!r.cat) catOpts.unshift(['', 'Choose…']);
+    var propOpts = props.map(function (p) { var rec = propRec(r.cat, p); return [p, p + ' (' + rec.count.toLocaleString() + ')']; });
+    if (r.prop && !propKnown) propOpts.unshift([r.prop, r.prop + ' (not in this model)']);
+    if (!r.prop) propOpts.unshift(['', 'Choose…']);
+    var last = i === rows.length - 1;
+    h += '<tr data-i="' + i + '"' + (r.on ? '' : ' class="off"') + '>' +
+      '<td class="c-on"><input type="checkbox" data-f="on"' + (r.on ? ' checked' : '') + ' aria-label="Use this row"></td>' +
+      '<td class="c-br"><select data-f="open" aria-label="Open brackets">' + bracketOpts(r.open, '(') + '</select></td>' +
+      '<td><select data-f="cat" class="' + (catKnown ? '' : 'missing') + '" aria-label="Category">' + opts(catOpts, r.cat) + '</select></td>' +
+      '<td><select data-f="prop" class="' + (propKnown ? '' : 'missing') + '" aria-label="Property">' + opts(propOpts, r.prop) + '</select></td>' +
+      '<td><select data-f="op" aria-label="Condition">' + opts(OPS, r.op) + '</select></td>' +
+      '<td><input type="text" class="vin" data-f="value" value="' + esc(r.value) + '" autocomplete="off" spellcheck="false" aria-label="Value"></td>' +
+      '<td class="c-br"><select data-f="close" aria-label="Close brackets">' + bracketOpts(r.close, ')') + '</select></td>' +
+      (last ? '<td class="last c-join">-</td>' : '<td class="c-join"><select data-f="join" aria-label="And or Or"><option value="and"' + (r.join === 'and' ? ' selected' : '') + '>And</option><option value="or"' + (r.join === 'or' ? ' selected' : '') + '>Or</option></select></td>') +
+      '<td class="cnt" id="cnt' + i + '"></td>' +
+      '<td><button class="x" type="button" data-f="del" aria-label="Remove row">✕</button></td></tr>';
+  });
+  $('#rows').innerHTML = h;
+  recompute();
+}
+
+/* ---------------- matching ---------------- */
+function test(op, x, q) {
+  switch (op) {
+    case 'eq': return x === q;
+    case 'neq': return x !== q;
+    case 'begins': return x.indexOf(q) === 0;
+    case 'nbegins': return x.indexOf(q) !== 0;
+    case 'ends': return x.length >= q.length && x.slice(x.length - q.length) === q;
+    case 'nends': return !(x.length >= q.length && x.slice(x.length - q.length) === q);
+    case 'has': return x.indexOf(q) > -1;
+    case 'nhas': return x.indexOf(q) === -1;
+  }
+  return false;
+}
+function rowMask(r) {
+  var n = data.n, m = new Uint8Array(n), key = r.cat + SEP + r.prop;
+  var q = r.value.trim().toLowerCase(); if (q === '(blank)') q = '';
+  for (var i = 0; i < n; i++) { var x = data.v[i][key]; x = x === undefined ? '' : x.toLowerCase(); if (test(r.op, x, q)) m[i] = 1; }
+  return m;
+}
+function valid(r) { return r.on && r.cat && r.prop && r.value.trim() !== ''; }
+function combine(a, b, isAnd) { var out = new Uint8Array(a.length); for (var i = 0; i < a.length; i++) out[i] = isAnd ? (a[i] & b[i]) : (a[i] | b[i]); return out; }
+/* Builds the result from the active rows. And binds tighter than Or, like normal logic; brackets override. */
+function evaluate() {
+  var act = rows.filter(valid), tokens = [], masks = [];
+  act.forEach(function (r, k) {
+    for (var a = 0; a < r.open; a++) tokens.push({ t: '(' });
+    var m = rowMask(r); masks.push(m); tokens.push({ t: 'c', m: m });
+    for (var b = 0; b < r.close; b++) tokens.push({ t: ')' });
+    if (k < act.length - 1) tokens.push({ t: r.join === 'or' ? 'or' : 'and' });
+  });
+  var p = 0;
+  function expr() { var l = term(); while (tokens[p] && tokens[p].t === 'or') { p++; l = combine(l, term(), false); } return l; }
+  function term() { var l = factor(); while (tokens[p] && tokens[p].t === 'and') { p++; l = combine(l, factor(), true); } return l; }
+  function factor() {
+    var t = tokens[p]; if (!t) throw new Error('The brackets do not match up.');
+    if (t.t === '(') { p++; var e = expr(); if (!tokens[p] || tokens[p].t !== ')') throw new Error('The brackets do not match up.'); p++; return e; }
+    if (t.t === 'c') { p++; return t.m; }
+    throw new Error('The brackets do not match up.');
+  }
+  if (!act.length) return { none: true, rowMasks: [], act: act };
+  var res = expr(); if (p < tokens.length) throw new Error('The brackets do not match up.');
+  return { mask: res, rowMasks: masks, act: act };
+}
+var lastEval = null;
+function sum(m) { var c = 0; for (var i = 0; i < m.length; i++) c += m[i]; return c; }
+function recompute() {
+  var cnt = $('#count'); cnt.className = 'count'; lastEval = null;
+  rows.forEach(function (r, i) { var c = $('#cnt' + i); if (c) c.textContent = ''; });
+  if (!data) { cnt.textContent = ''; $('#applyBtn').disabled = true; return; }
+  try {
+    var ev = evaluate(); lastEval = ev;
+    ev.act.forEach(function (r, k) { var i = rows.indexOf(r), c = $('#cnt' + i); if (c) c.textContent = sum(ev.rowMasks[k]).toLocaleString(); });
+    if (ev.none) { cnt.textContent = 'Type a value in a row to filter ' + data.n.toLocaleString() + ' objects.'; $('#applyBtn').disabled = true; return; }
+    ev.total = sum(ev.mask);
+    cnt.textContent = ev.total.toLocaleString() + ' of ' + data.n.toLocaleString() + ' objects match';
+    $('#applyBtn').disabled = demo || !api;
+  } catch (e) { cnt.textContent = e.message; cnt.className = 'count bad'; $('#applyBtn').disabled = true; }
+}
+var raf = 0; function recomputeSoon() { cancelAnimationFrame(raf); raf = requestAnimationFrame(recompute); }
+
+/* ---------------- grid events ---------------- */
+$('#rows').addEventListener('change', function (e) {
+  var t = e.target, f = t.dataset.f, tr = t.closest('tr'); if (!f || !tr) return;
+  var r = rows[+tr.dataset.i];
+  if (f === 'on') { r.on = t.checked; tr.classList.toggle('off', !r.on); recompute(); return; }
+  if (f === 'open' || f === 'close') { r[f] = +t.value; recompute(); return; }
+  if (f === 'join' || f === 'op') { r[f] = t.value; recompute(); return; }
+  if (f === 'cat') { r.cat = t.value; r.prop = propList(r.cat)[0] || ''; render(); return; }
+  if (f === 'prop') { r.prop = t.value; recompute(); return; }
+});
+$('#rows').addEventListener('click', function (e) {
+  var t = e.target.closest('[data-f="del"]'); if (!t) return;
+  rows.splice(+t.closest('tr').dataset.i, 1); if (!rows.length) rows.push(blankRow()); render();
+});
+$('#rows').addEventListener('input', function (e) {
+  var t = e.target; if (t.dataset.f !== 'value') return;
+  rows[+t.closest('tr').dataset.i].value = t.value; vpOpen(t); recomputeSoon();
+});
+$('#addRow').addEventListener('click', function () {
+  var r = blankRow(), prev = rows[rows.length - 1];
+  if (prev && prev.cat) { r.cat = prev.cat; r.prop = prev.prop; } else { var cs = catList(); if (cs.length) { r.cat = cs[0]; r.prop = propList(cs[0])[0] || ''; } }
+  rows.push(r); render();
+  var ins = document.querySelectorAll('#rows .vin'); if (ins.length) ins[ins.length - 1].focus();
+});
+$('#clearRows').addEventListener('click', function () { seedRows(); render(); });
+
+/* ---------------- value suggestions ---------------- */
+var vpop = $('#vpop'), vp = { input: null, items: [], idx: -1, t: 0 };
+function vpClose() { vpop.hidden = true; vp.input = null; vp.idx = -1; }
+function vpOpen(input) {
+  clearTimeout(vp.t); var r = rows[+input.closest('tr').dataset.i], rec = propRec(r.cat, r.prop);
+  if (!rec) { vpClose(); return; }
+  vp.input = input; var q = input.value.trim().toLowerCase();
+  var items = Array.from(rec.vals.entries()).filter(function (e) { return !q || e[0].toLowerCase().indexOf(q) > -1; }).sort(function (a, b) { return nat(a[0], b[0]); });
+  var more = Math.max(0, items.length - 60); items = items.slice(0, 60);
+  var blanks = data.n - rec.count;
+  if (blanks > 0 && (!q || '(blank)'.indexOf(q) > -1)) items.unshift(['(blank)', blanks]);
+  vp.items = items; vp.idx = -1;
+  vpop.innerHTML = items.length ? items.map(function (it, i) { return '<div class="vo" data-i="' + i + '"><span>' + esc(it[0]) + '</span><span class="vn">' + it[1].toLocaleString() + '</span></div>'; }).join('') + (more ? '<div class="vm">' + more + ' more. Keep typing to narrow the list.</div>' : '') : '<div class="vm">No values match. You can still type your own.</div>';
+  vpop.hidden = false;
+  var b = input.getBoundingClientRect(), w = Math.max(b.width, 240), left = Math.max(8, Math.min(b.left, window.innerWidth - w - 8));
+  var below = window.innerHeight - b.bottom - 10, above = b.top - 10, up = below < 180 && above > below;
+  vpop.style.left = left + 'px'; vpop.style.width = w + 'px'; vpop.style.maxHeight = Math.max(110, Math.min(300, up ? above : below)) + 'px';
+  if (up) { vpop.style.top = 'auto'; vpop.style.bottom = (window.innerHeight - b.top + 2) + 'px'; } else { vpop.style.bottom = 'auto'; vpop.style.top = (b.bottom + 2) + 'px'; }
+}
+function vpChoose(i) { var it = vp.items[i], inp = vp.input; if (!it || !inp) return; inp.value = it[0]; rows[+inp.closest('tr').dataset.i].value = it[0]; vpClose(); recompute(); }
+function vpMark() { Array.prototype.forEach.call(vpop.querySelectorAll('.vo'), function (n, i) { n.classList.toggle('on', i === vp.idx); if (i === vp.idx) n.scrollIntoView({ block: 'nearest' }); }); }
+document.addEventListener('focusin', function (e) { if (e.target.classList && e.target.classList.contains('vin')) { e.target.select(); vpOpen(e.target); } });
+document.addEventListener('focusout', function (e) { if (e.target.classList && e.target.classList.contains('vin')) vp.t = setTimeout(vpClose, 150); });
+document.addEventListener('keydown', function (e) {
+  if (vpop.hidden || !vp.input || e.target !== vp.input) return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); vp.idx = Math.min(vp.items.length - 1, vp.idx + 1); vpMark(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); vp.idx = Math.max(0, vp.idx - 1); vpMark(); }
+  else if (e.key === 'Enter' && vp.idx > -1) { e.preventDefault(); vpChoose(vp.idx); }
+  else if (e.key === 'Escape') vpClose();
+});
+vpop.addEventListener('mousedown', function (e) { var n = e.target.closest('.vo'); if (n) { e.preventDefault(); vpChoose(+n.dataset.i); } });
+
+/* ---------------- applying to the 3D view ---------------- */
+function setStatus(msg, err) { var el = $('#status'); el.textContent = msg || ''; el.className = 'status' + (err ? ' err' : ''); clearTimeout(setStatus.t); if (msg) setStatus.t = setTimeout(function () { el.textContent = ''; }, 9000); }
+function selectorFor(mask) {
+  var by = {}; for (var i = 0; i < mask.length; i++) if (mask[i]) (by[data.mid[i]] = by[data.mid[i]] || []).push(data.vid[i]);
+  return Object.keys(by).map(function (k) { return { modelId: k, objectRuntimeIds: by[k] }; });
+}
+function applyFilter() {
+  if (!api || !lastEval || !lastEval.mask) return;
+  var total = lastEval.total, mode = document.querySelector('input[name=mode]:checked').value, ids = selectorFor(lastEval.mask), v = api.viewer;
+  if (!total) { setStatus('Nothing matches, so the 3D view was left as it is.', true); return; }
+  var p;
+  if (mode === 'show') p = v.setObjectState(undefined, { visible: false }).then(function () { return v.setObjectState({ modelObjectIds: ids }, { visible: true }); });
+  else if (mode === 'hide') p = v.setObjectState(undefined, { visible: 'reset' }).then(function () { return v.setObjectState({ modelObjectIds: ids }, { visible: false }); });
+  else p = v.setSelection({ modelObjectIds: ids }, 'set');
+  $('#applyBtn').disabled = true;
+  p.then(function () { if ($('#zoom').checked && mode !== 'hide' && v.setCamera) return v.setCamera({ modelObjectIds: ids }); })
+    .then(function () { setStatus((mode === 'show' ? 'Showing only ' : mode === 'hide' ? 'Hid ' : 'Selected ') + total.toLocaleString() + ' object' + (total === 1 ? '' : 's') + '.'); })
+    .catch(function (e) { setStatus('The 3D viewer did not accept that: ' + (e && e.message || e), true); })
+    .then(function () { recompute(); });
+}
+$('#applyBtn').addEventListener('click', applyFilter);
+$('#resetBtn').addEventListener('click', function () {
+  if (!api) { setStatus('Open this inside Trimble Connect to control the 3D view.', true); return; }
+  api.viewer.setObjectState(undefined, { visible: 'reset' }).then(function () { setStatus('Everything is visible again.'); }).catch(function (e) { setStatus('Could not reset the view: ' + (e && e.message || e), true); });
+});
+
+/* ---------------- saved filters ---------------- */
+function renderSaved() {
+  var s = $('#saved'); s.innerHTML = '<option value="">' + (saved.length ? 'Choose a saved filter…' : 'None saved yet') + '</option>' + saved.map(function (x, i) { return '<option value="' + i + '">' + esc(x.name) + '</option>'; }).join('');
+}
+function snapshot() { return { rows: JSON.parse(JSON.stringify(rows)), mode: document.querySelector('input[name=mode]:checked').value }; }
+function restore(s) {
+  rows = (s.rows || []).map(function (r) { var b = blankRow(); Object.keys(b).forEach(function (k) { if (r[k] !== undefined) b[k] = r[k]; }); b.value = String(b.value || ''); return b; });
+  if (!rows.length) rows.push(blankRow());
+  var rd = document.querySelector('input[name=mode][value="' + (s.mode || 'show') + '"]'); if (rd) rd.checked = true;
+  render();
+}
+$('#saved').addEventListener('change', function (e) { var s = saved[+e.target.value]; if (s) { restore(s); $('#saveName').value = s.name; setStatus('Loaded "' + s.name + '".'); } });
+$('#saveBtn').addEventListener('click', function () {
+  var name = $('#saveName').value.trim(); if (!name) { setStatus('Type a name for this filter first.', true); return; }
+  var entry = Object.assign({ name: name }, snapshot()), i = saved.findIndex(function (x) { return x.name === name; });
+  if (i > -1) saved[i] = entry; else saved.push(entry);
+  var ok = persist(); renderSaved(); $('#saved').value = String(i > -1 ? i : saved.length - 1);
+  setStatus(ok ? 'Saved "' + name + '" in this browser.' : 'This browser would not keep it. Use Export to keep a copy as a file.', !ok);
+});
+$('#delBtn').addEventListener('click', function () { var i = $('#saved').value; if (i === '') return; var n = saved[+i].name; saved.splice(+i, 1); persist(); renderSaved(); setStatus('Deleted "' + n + '".'); });
+$('#expBtn').addEventListener('click', function () {
+  var name = $('#saveName').value.trim() || 'model-filter', blob = new Blob([JSON.stringify(Object.assign({ modelFilter: 1, name: name }, snapshot()), null, 2)], { type: 'application/json' });
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name.replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.filter.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+});
+$('#impBtn').addEventListener('click', function () { $('#impIn').click(); });
+$('#impIn').addEventListener('change', function (e) {
+  var f = e.target.files[0]; if (!f) return;
+  f.text().then(function (t) { var j = JSON.parse(t); if (!j || !j.rows) throw new Error('This file is not a model filter.'); restore(j); if (j.name) $('#saveName').value = j.name; setStatus('Filter loaded. Press Save to keep it in this browser.'); })
+    .catch(function (err) { setStatus('Could not read that file: ' + err.message, true); });
+  e.target.value = '';
+});
+
+/* ---------------- loading a model ---------------- */
+function adopt(d) {
+  data = d; $('#chip').hidden = false; $('#chipName').textContent = d.name; $('#chipInfo').textContent = d.n.toLocaleString() + ' objects · ' + catList().length + ' categories';
+  var keep = rows.length && rows.some(function (r) { return r.value.trim() !== ''; });
+  if (!keep) seedRows();
+  render();
+}
+function showLoading(on, msg) { var l = $('#loading'); l.hidden = !on; if (msg) l.textContent = msg; }
+function loadFromViewer(silent) {
+  if (!api || !api.viewer || loadFromViewer.busy) return; loadFromViewer.busy = true;
+  if (silent !== true) showLoading(true, 'Reading the model from Trimble Connect…');
+  var names = {};
+  var pm = api.viewer.getModels ? api.viewer.getModels('loaded').then(function (ms) { (ms || []).forEach(function (m) { names[m.id] = m.name; }); }, function () { }) : Promise.resolve();
+  pm.then(function () { return api.viewer.getObjects({ output: { loadProperties: true } }); }).then(function (res) {
+    var objs = []; (res || []).forEach(function (m) { (m.objects || []).forEach(function (o) { o.modelId = m.modelId; objs.push(o); }); });
+    if (!objs.length) throw new Error('No objects found. Load a model in the 3D viewer, then press Refresh.');
+    if (!(objs[0].properties && objs[0].properties.length)) {
+      var p = Promise.resolve([]);
+      (res || []).forEach(function (m) { var ids = (m.objects || []).map(function (x) { return x.id; });
+        for (var i = 0; i < ids.length; i += 500) (function (sl, mid) { p = p.then(function (acc) { return api.viewer.getObjectProperties(mid, sl).then(function (r) { r.forEach(function (x) { x.modelId = mid; }); return acc.concat(r); }); }); })(ids.slice(i, i + 500), m.modelId); });
+      return p;
+    }
+    return objs;
+  }).then(function (objs) {
+    var present = {}; objs.forEach(function (o) { present[o.modelId] = 1; });
+    var ids = Object.keys(names).filter(function (k) { return present[k]; }), label = ids.length === 1 ? names[ids[0]] : (ids.length ? ids.length + ' models' : 'Loaded models');
+    adopt(buildData(objs, names, label)); setStatus('Read ' + objs.length.toLocaleString() + ' objects from the viewer.');
+  }).catch(function (e) { setStatus('Could not read the viewer: ' + (e && e.message || e), true); })
+    .then(function () { loadFromViewer.busy = false; showLoading(false); });
+}
+$('#refreshBtn').addEventListener('click', function () { loadFromViewer(); });
+
+/* A small made-up model so the page can be previewed outside Trimble Connect */
+function demoObjects() {
+  var names = ['BEAM', 'COLUMN', 'PLATE', 'BRACE'], prof = ['W10X12', 'W12X26', 'HSS6X6X1/4', 'PL3/8X7', 'L4X4X1/4'], mat = ['A992', 'A36', 'A500GR.B', 'A572GR50'], out = [];
+  for (var i = 0; i < 80; i++) {
+    out.push({ id: i + 1, modelId: 'demo', class: i % 4 === 2 ? 'IFCPLATE' : 'IFCBEAM', properties: [
+      { name: 'Part Properties', properties: [{ name: 'Name', value: names[i % 4] }, { name: 'Profile', value: prof[i % 5] }, { name: 'Material', value: mat[(i * 3) % 4] }, { name: 'Part Mark', value: 'p' + (100 + i) }, { name: 'Is Main Part?', value: i % 3 === 0 ? 1 : 0 }] },
+      { name: 'Tekla Assembly', properties: [{ name: 'Assembly/Cast unit Mark', value: 'B' + (1 + (i % 9)) }] }] });
+  }
+  return out;
+}
+function startDemo(why) {
+  demo = true; var n = { demo: 'Demo model' };
+  $('#banner').innerHTML = '<div class="banner warn"><b>Demo data.</b> ' + esc(why) + ' The filter grid works, but it cannot change a real 3D view until this page is opened as an extension inside Trimble Connect.</div>';
+  adopt(buildData(demoObjects(), n, 'Demo model'));
+}
+function initConnect() {
+  var inFrame = false; try { inFrame = window.parent !== window; } catch (e) { inFrame = true; }
+  if (!inFrame) { startDemo('This page is not running inside Trimble Connect.'); return; }
+  var sc = document.createElement('script');
+  sc.src = 'https://cdn.jsdelivr.net/npm/trimble-connect-workspace-api@0.3.34/dist/iife/trimbleconnect.workspace.api.js';
+  sc.onerror = function () { startDemo('The Trimble Connect connection library could not be loaded.'); };
+  sc.onload = function () {
+    if (!window.TrimbleConnectWorkspace) { startDemo('The Trimble Connect connection library did not start.'); return; }
+    window.TrimbleConnectWorkspace.connect(window.parent, function (ev) {
+      if (ev === 'viewer.onModelStateChanged' || ev === 'viewer.onModelReset') { clearTimeout(initConnect.t); initConnect.t = setTimeout(function () { loadFromViewer(true); }, 1200); }
+    }, 15000).then(function (a) {
+      api = a; $('#refreshBtn').hidden = false; loadFromViewer();
+      try { api.extension.setStatusMessage('Model Filter ready'); } catch (e) { }
+    }).catch(function () { startDemo('Trimble Connect did not answer.'); });
+  };
+  document.head.appendChild(sc);
+}
+
+renderSaved(); render(); initConnect();
+})();
+</script>
+</body>
+</html>
