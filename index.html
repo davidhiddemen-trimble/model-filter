@@ -111,7 +111,7 @@ table.grid select.missing { border-color: var(--warn); color: var(--warn); }
   <div class="row-actions">
     <button class="btn small" id="addRow" type="button">+ Add row</button>
     <button class="btn small ghost" id="clearRows" type="button">Clear all</button>
-    <span class="note">Rows with an empty Value are ignored. Type (blank) to find objects that have no value. Matching ignores upper and lower case.</span>
+    <span class="note">In Value, separate several values with a space and put quotes around a value that contains a space, e.g. A36 A992 &quot;PL 3/8&quot;. Rows with an empty Value are ignored. Type (blank) to find objects with no value. Upper and lower case are ignored.</span>
   </div>
 
   <div class="act">
@@ -243,10 +243,21 @@ function test(op, x, q) {
   }
   return false;
 }
+/* "A36 A992 "PL 3/8"" -> ['a36','a992','pl 3/8']. Spaces separate values; quotes keep a value with spaces together. */
+function parseTerms(s) {
+  var out = [], re = /"([^"]*)"|(\S+)/g, m;
+  while ((m = re.exec(s)) !== null) { var t = (m[1] !== undefined ? m[1] : m[2]).toLowerCase(); out.push(t === '(blank)' ? '' : t); }
+  return out;
+}
+var NEG = { neq: 'eq', nbegins: 'begins', nends: 'ends', nhas: 'has' };
+/* Positive conditions match if ANY value matches. "Does not..." conditions match only if NONE of the values match. */
 function rowMask(r) {
-  var n = data.n, m = new Uint8Array(n), key = r.cat + SEP + r.prop;
-  var q = r.value.trim().toLowerCase(); if (q === '(blank)') q = '';
-  for (var i = 0; i < n; i++) { var x = data.v[i][key]; x = x === undefined ? '' : x.toLowerCase(); if (test(r.op, x, q)) m[i] = 1; }
+  var n = data.n, m = new Uint8Array(n), key = r.cat + SEP + r.prop, terms = parseTerms(r.value), pos = NEG[r.op] || r.op, neg = !!NEG[r.op];
+  for (var i = 0; i < n; i++) {
+    var x = data.v[i][key]; x = x === undefined ? '' : x.toLowerCase();
+    var any = false; for (var k = 0; k < terms.length; k++) if (test(pos, x, terms[k])) { any = true; break; }
+    if (neg ? !any : any) m[i] = 1;
+  }
   return m;
 }
 function valid(r) { return r.on && r.cat && r.prop && r.value.trim() !== ''; }
@@ -322,7 +333,7 @@ function vpClose() { vpop.hidden = true; vp.input = null; vp.idx = -1; }
 function vpOpen(input) {
   clearTimeout(vp.t); var r = rows[+input.closest('tr').dataset.i], rec = propRec(r.cat, r.prop);
   if (!rec) { vpClose(); return; }
-  vp.input = input; var q = input.value.trim().toLowerCase();
+  vp.input = input; var q = splitActive(input.value).frag.trim().toLowerCase();
   var items = Array.from(rec.vals.entries()).filter(function (e) { return !q || e[0].toLowerCase().indexOf(q) > -1; }).sort(function (a, b) { return nat(a[0], b[0]); });
   var more = Math.max(0, items.length - 60); items = items.slice(0, 60);
   var blanks = data.n - rec.count;
@@ -335,7 +346,12 @@ function vpOpen(input) {
   vpop.style.left = left + 'px'; vpop.style.width = w + 'px'; vpop.style.maxHeight = Math.max(110, Math.min(300, up ? above : below)) + 'px';
   if (up) { vpop.style.top = 'auto'; vpop.style.bottom = (window.innerHeight - b.top + 2) + 'px'; } else { vpop.style.bottom = 'auto'; vpop.style.top = (b.bottom + 2) + 'px'; }
 }
-function vpChoose(i) { var it = vp.items[i], inp = vp.input; if (!it || !inp) return; inp.value = it[0]; rows[+inp.closest('tr').dataset.i].value = it[0]; vpClose(); recompute(); }
+function splitActive(s) {
+  if ((s.match(/"/g) || []).length % 2 === 1) { var i = s.lastIndexOf('"'); return { prefix: s.slice(0, i), frag: s.slice(i + 1) }; }
+  var m = /(\S*)$/.exec(s); return { prefix: s.slice(0, s.length - m[1].length), frag: m[1] };
+}
+function quoteIf(t) { return /\s/.test(t) ? '"' + t + '"' : t; }
+function vpChoose(i) { var it = vp.items[i], inp = vp.input; if (!it || !inp) return; inp.value = splitActive(inp.value).prefix + quoteIf(it[0]) + ' '; rows[+inp.closest('tr').dataset.i].value = inp.value; vpClose(); recompute(); }
 function vpMark() { Array.prototype.forEach.call(vpop.querySelectorAll('.vo'), function (n, i) { n.classList.toggle('on', i === vp.idx); if (i === vp.idx) n.scrollIntoView({ block: 'nearest' }); }); }
 document.addEventListener('focusin', function (e) { if (e.target.classList && e.target.classList.contains('vin')) { e.target.select(); vpOpen(e.target); } });
 document.addEventListener('focusout', function (e) { if (e.target.classList && e.target.classList.contains('vin')) vp.t = setTimeout(vpClose, 150); });
